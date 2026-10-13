@@ -1,0 +1,32 @@
+# Gradle Files
+.gradle/
+/gradle-wrapper.jar
+/captures/
+/gradlew
+/gradlew.bat
+/local.properties
+
+# Android Build Files
+.cxx/
+**/.cxx/
+build/
+**/build/
+.externalNativeBuild/
+
+# Generated Files
+GeneratedPluginRegistrant.java
+*.log
+*.tmp
+
+# Android Studio
+.idea/
+*.iml
+
+# Keystore Files (Security)
+key.properties
+**/*.keystore
+**/*.jks
+
+# Signing Files
+*.key
+*.pem
