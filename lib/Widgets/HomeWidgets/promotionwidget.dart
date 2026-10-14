@@ -1,14 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:designerdigger/Services/firestore_collections.dart';
 import 'package:designerdigger/Utilities/colors.dart';
 import 'package:flutter/material.dart';
 
 class PromotionWidget extends StatelessWidget {
   final Stream<QuerySnapshot> _promotionsStream =
-      FirebaseFirestore.instance.collection('promotions').snapshots();
+      FirebaseFirestore.instance.collection(FirestoreCollections.promotions).snapshots();
 
   PromotionWidget({
     super.key,
   });
+
+  String _toRs(dynamic value) {
+    return value.toString().replaceAll('\$', 'Rs ');
+  }
+
   @override
   Widget build(BuildContext context) {
     Size sc = MediaQuery.of(context).size;
@@ -74,13 +80,13 @@ class PromotionWidget extends StatelessWidget {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          categorydata['title'],
+                                          _toRs(categorydata['title']),
                                           style: const TextStyle(
                                               color: whiteclr, fontSize: 16),
                                         ),
                                         SizedBox(height: sc.height * 0.0015),
                                         Text(
-                                          categorydata['heading'],
+                                          _toRs(categorydata['heading']),
                                           style: const TextStyle(
                                               color: whiteclr,
                                               fontSize: 17.5,
@@ -90,7 +96,7 @@ class PromotionWidget extends StatelessWidget {
                                         SizedBox(
                                           width: sc.width * .5,
                                           child: Text(
-                                            categorydata['subtitle'],
+                                            _toRs(categorydata['subtitle']),
                                             style: const TextStyle(
                                                 color: whiteclr, fontSize: 16),
                                           ),

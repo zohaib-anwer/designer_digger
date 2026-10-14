@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:designerdigger/Services/firestore_collections.dart';
 import 'package:designerdigger/Utilities/colors.dart';
 import 'package:designerdigger/Utilities/utils.dart';
 import 'package:designerdigger/main.dart';
@@ -42,8 +43,9 @@ class _PhoneNumberViewState extends State<VerifyPhoneNumberView> {
       if (user != null) {
         // String token = await user.getIdToken(); // Retrieve the token
         // ignore: avoid_print
-        final DocumentReference documentRef =
-            FirebaseFirestore.instance.collection("users").doc(box.read('uid'));
+        final DocumentReference documentRef = FirebaseFirestore.instance
+            .collection(FirestoreCollections.diggerUsers)
+            .doc(box.read('uid'));
         final Map<String, dynamic> newData = {
           'phonenumber': widget.phonenumb,
           'uid': box.read('uid')

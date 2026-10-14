@@ -1,3 +1,4 @@
+import 'package:designerdigger/Services/supabase_config.dart';
 import 'package:designerdigger/Utilities/Provider/adonesprovider.dart';
 import 'package:designerdigger/Utilities/Provider/cartprovider.dart';
 import 'package:designerdigger/Utilities/Provider/categoryprovider.dart';
@@ -13,11 +14,16 @@ import 'package:flutter/material.dart';
 import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 final box = GetStorage();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    publishableKey: SupabaseConfig.publishableKey,
+  );
   final box = GetStorage();
   runApp(MyApp());
 }

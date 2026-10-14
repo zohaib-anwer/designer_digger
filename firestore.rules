@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /digger_users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /products/{id} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /promotions/{id} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /cartitems/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /favourites/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /orders/{id} {
+      allow create, read, update: if request.auth != null;
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:designerdigger/Services/firestore_collections.dart';
 import 'package:designerdigger/Utilities/Models/categorymodel.dart';
 import 'package:designerdigger/Utilities/colors.dart';
 import 'package:designerdigger/Utilities/utils.dart';
@@ -17,7 +18,7 @@ class FavouriteView extends StatefulWidget {
 
 class _FavouriteViewState extends State<FavouriteView> {
   CollectionReference removefavouritecollection =
-      FirebaseFirestore.instance.collection('favourites');
+      FirebaseFirestore.instance.collection(FirestoreCollections.favourites);
 
   Future<void> deletefavourite(String docu, data) {
     print("documentid??????????? $docu ");
@@ -30,7 +31,7 @@ class _FavouriteViewState extends State<FavouriteView> {
   }
 
   final Stream<QuerySnapshot> favouritecollection = FirebaseFirestore.instance
-      .collection('favourites')
+      .collection(FirestoreCollections.favourites)
       .where('uid', isEqualTo: box.read('uid'))
       .snapshots();
 

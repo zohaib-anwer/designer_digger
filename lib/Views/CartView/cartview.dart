@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:designerdigger/Services/firestore_collections.dart';
 import 'package:designerdigger/Utilities/colors.dart';
 import 'package:designerdigger/Utilities/utils.dart';
 import 'package:designerdigger/Views/jazzcash_payment/jazzcash_payment_screen.dart';
@@ -20,7 +21,7 @@ class _CartViewState extends State<CartView> {
     super.initState();
 
     _usersStream = FirebaseFirestore.instance
-        .collection('cartitems')
+        .collection(FirestoreCollections.cartItems)
         .where('uid', isEqualTo: box.read('uid'))
         .snapshots();
   }
@@ -71,7 +72,7 @@ class _CartViewState extends State<CartView> {
   ) async {
     try {
       await FirebaseFirestore.instance
-          .collection('cartitems')
+          .collection(FirestoreCollections.cartItems)
           .doc(data.id)
           .delete();
 
@@ -113,22 +114,68 @@ class _CartViewState extends State<CartView> {
     ) as bool?;
 
     if (isSuccess == true) {
-      // --- YAHAN CART CLEAR HOGA ---
       try {
-        // Firebase se sare cart items delete karo
-        WriteBatch batch = FirebaseFirestore.instance.batch();
-        for (var item in cartItems) {
+        final String uid = box.read('uid')?.toString() ?? '';
+        String userName = '';
+        String userEmail = '';
+        String userPhone = '';
+
+        if (uid.isNotEmpty) {
+          final userSnap = await FirebaseFirestore.instance
+              .collection(FirestoreCollections.diggerUsers)
+              .doc(uid)
+              .get();
+          final userData = userSnap.data();
+          if (userData != null) {
+            userName = (userData['name'] ?? '').toString();
+            userEmail = (userData['email'] ?? '').toString();
+            userPhone = (userData['phone'] ?? userData['phonenumber'] ?? '')
+                .toString();
+          }
+        }
+
+        final List<Map<String, dynamic>> orderItems = cartItems.map((item) {
+          final data = item.data() as Map<String, dynamic>? ?? {};
+          return {
+            'productId': item.id,
+            'image': data['image'] ?? '',
+            'productname': data['productname'] ?? '',
+            'productprice': data['productprice'],
+            'adones': data['adones'],
+          };
+        }).toList();
+
+        final WriteBatch batch = FirebaseFirestore.instance.batch();
+        final orderRef =
+            FirebaseFirestore.instance.collection(FirestoreCollections.orders).doc();
+
+        batch.set(orderRef, {
+          'uid': uid,
+          'userName': userName,
+          'userEmail': userEmail,
+          'userPhone': userPhone,
+          'items': orderItems,
+          'itemCount': orderItems.length,
+          'totalAmount': totalAmount,
+          'paymentMethod': 'JazzCash',
+          'status': 'placed',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        for (final item in cartItems) {
           batch.delete(item.reference);
         }
+
         await batch.commit();
 
         if (!mounted) return;
         Utils.toastmessage('Payment Successful! Cart Cleared');
-
-        // Optional: Order history me save karna ho to yahan code add kar sakte ho
-
       } catch (e) {
-        Utils.flushBarErrorMessage('Payment success but failed to clear cart: $e', context);
+        if (!mounted) return;
+        Utils.flushBarErrorMessage(
+          'Payment success but failed to save order: $e',
+          context,
+        );
       }
     } else if (isSuccess == false) {
       Utils.toastmessage('Payment Failed');

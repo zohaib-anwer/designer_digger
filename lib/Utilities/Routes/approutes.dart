@@ -1,8 +1,9 @@
+import 'package:designerdigger/Services/admin_service.dart';
 import 'package:designerdigger/Utilities/ThemeChanger/themechanger.dart';
 import 'package:designerdigger/Views/AddProducts/addproducts.dart';
 import 'package:designerdigger/Views/AddProducts/addpromotions.dart';
-import 'package:designerdigger/Views/Authentication/SignUpView/PhoneNumber/phonenumber.dart';
-import 'package:designerdigger/Views/Authentication/SignUpView/PhoneNumber/verifynumber.dart';
+import 'package:designerdigger/Views/AdminOrders/admin_orders_view.dart';
+import 'package:designerdigger/Views/Orders/my_orders_view.dart';
 import 'package:designerdigger/Views/CartView/cartview.dart';
 import 'package:designerdigger/Views/HomeView/DetailView/detailview.dart';
 import 'package:designerdigger/Views/HomeView/homeview.dart';
@@ -17,7 +18,23 @@ import 'package:go_router/go_router.dart';
 import 'errorwidget.dart' as e;
 
 class AppRoute {
+  static const _adminOnlyPaths = {
+    '/addproductsview',
+    '/addpromotionsview',
+    '/adminordersview',
+  };
+
   static final GoRouter router = GoRouter(
+    redirect: (BuildContext context, GoRouterState state) async {
+      if (!_adminOnlyPaths.contains(state.matchedLocation)) {
+        return null;
+      }
+      final isAdmin = await AdminService.isAdmin();
+      if (!isAdmin) {
+        return '/mainview';
+      }
+      return null;
+    },
     routes: [
       GoRoute(
         path: '/',
@@ -50,6 +67,11 @@ class AppRoute {
             const CartView(),
       ),
       GoRoute(
+        path: '/myordersview',
+        builder: (BuildContext context, GoRouterState state) =>
+            const MyOrdersView(),
+      ),
+      GoRoute(
         path: '/addproductsview',
         builder: (BuildContext context, GoRouterState state) =>
             const AddProducts(),
@@ -58,6 +80,11 @@ class AppRoute {
         path: '/addpromotionsview',
         builder: (BuildContext context, GoRouterState state) =>
             const AddPromotions(),
+      ),
+      GoRoute(
+        path: '/adminordersview',
+        builder: (BuildContext context, GoRouterState state) =>
+            const AdminOrdersView(),
       ),
       GoRoute(
         path: '/darkview',
@@ -75,21 +102,6 @@ class AppRoute {
           name: state.extra.toString(),
         ),
       ),
-      GoRoute(
-        path: '/phonenumberview',
-        builder: (BuildContext context, GoRouterState state) =>
-            const PhoneNumberView(),
-      ),
-      GoRoute(
-          path: '/verifyphonenumberview',
-          builder: (BuildContext context, GoRouterState state) {
-            final queryParams = state.uri.queryParameters;
-            final id = queryParams['id'];
-            return VerifyPhoneNumberView(
-              phonenumb: state.extra.toString(),
-              id: id.toString(),
-            );
-          }),
       GoRoute(
         path: '/detailview',
         builder: (BuildContext context, GoRouterState state) => DetailView(

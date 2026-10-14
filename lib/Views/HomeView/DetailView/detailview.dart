@@ -1,7 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:designerdigger/Services/firestore_collections.dart';
 import 'package:designerdigger/Utilities/Provider/adonesprovider.dart';
 import 'package:designerdigger/Utilities/colors.dart';
 import 'package:designerdigger/Utilities/utils.dart';
+import 'package:designerdigger/Widgets/HomeWidgets/delete_product_button.dart';
+import 'package:designerdigger/Widgets/HomeWidgets/replace_product_image_button.dart';
 import 'package:designerdigger/main.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -17,8 +20,9 @@ class DetailView extends StatefulWidget {
 
 class _DetailViewState extends State<DetailView> {
   String activecatt = '';
+  String? _replacedImageUrl;
   CollectionReference users =
-      FirebaseFirestore.instance.collection('cartitems');
+      FirebaseFirestore.instance.collection(FirestoreCollections.cartItems);
   Future<void> addUser(
     String image,
     productname,
@@ -45,7 +49,7 @@ class _DetailViewState extends State<DetailView> {
   Widget build(BuildContext context) {
     Size sc = MediaQuery.of(context).size;
     CollectionReference users =
-        FirebaseFirestore.instance.collection('products');
+        FirebaseFirestore.instance.collection(FirestoreCollections.products);
 
     return FutureBuilder<DocumentSnapshot>(
       future: users.doc(widget.detail.toString()).get(),
@@ -62,6 +66,7 @@ class _DetailViewState extends State<DetailView> {
         if (snapshot.connectionState == ConnectionState.done) {
           Map<String, dynamic> data =
               snapshot.data!.data() as Map<String, dynamic>;
+          final imageUrl = _replacedImageUrl ?? data['image'] as String;
           return Scaffold(
             backgroundColor: onboardingclr,
             body: Stack(
@@ -73,16 +78,47 @@ class _DetailViewState extends State<DetailView> {
                     ),
                     SizedBox(
                       height: sc.height / 2.8,
-                      child: Container(
-                        height: sc.height / 6,
-                        decoration: BoxDecoration(
-                          color: onboardingclr,
-                          image: DecorationImage(
-                            image: NetworkImage(
-                              data['image'],
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Container(
+                            height: sc.height / 6,
+                            decoration: BoxDecoration(
+                              color: onboardingclr,
+                              image: DecorationImage(
+                                image: NetworkImage(imageUrl),
+                                fit: BoxFit.cover,
+                              ),
                             ),
                           ),
-                        ),
+                          Positioned(
+                            bottom: 16,
+                            right: 16,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                ReplaceProductImageButton(
+                                  productId: widget.detail.toString(),
+                                  compact: false,
+                                  onReplaced: (url) {
+                                    setState(() => _replacedImageUrl = url);
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+                                DeleteProductButton(
+                                  productId: widget.detail.toString(),
+                                  productName: data['productname']?.toString(),
+                                  compact: false,
+                                  onDeleted: () {
+                                    if (context.mounted) {
+                                      context.pop();
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     Container(
@@ -341,7 +377,7 @@ class _DetailViewState extends State<DetailView> {
                               return InkWell(
                                 onTap: () {
                                   addUser(
-                                    data['image'],
+                                    imageUrl,
                                     data['productname'],
                                     data['productprice'],
                                     value.activecatt,

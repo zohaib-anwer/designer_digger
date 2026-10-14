@@ -1,3 +1,4 @@
+import 'package:designerdigger/Services/firestore_collections.dart';
 import 'package:designerdigger/Utilities/colors.dart';
 import 'package:designerdigger/Utilities/utils.dart';
 import 'package:designerdigger/main.dart';
@@ -27,17 +28,18 @@ class _CartItemWidgetState extends State<CartItemWidget> {
     checkCartStatus();
   }
 
-  void checkCartStatus() async {
+  Future<void> checkCartStatus() async {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
       return;
     }
 
     final snapshot = await FirebaseFirestore.instance
-        .collection('cartitems')
+        .collection(FirestoreCollections.cartItems)
         .doc(widget.docid)
         .get();
 
+    if (!mounted) return;
     setState(() {
       isCartItem = snapshot.exists;
     });
@@ -49,14 +51,16 @@ class _CartItemWidgetState extends State<CartItemWidget> {
       return;
     }
 
-    return FirebaseFirestore.instance
-        .collection('cartitems')
-        .doc(widget.docid)
-        .delete()
-        .then((value) =>
-            Utils.toastmessage("${widget.productname} removed from cartitems"))
-        .catchError((error) => Utils.flushBarErrorMessage(
-            "Failed to delete user: $error", context));
+    try {
+      await FirebaseFirestore.instance
+          .collection(FirestoreCollections.cartItems)
+          .doc(widget.docid)
+          .delete();
+      Utils.toastmessage("${widget.productname} removed from cartitems");
+    } catch (error) {
+      if (!mounted) return;
+      Utils.flushBarErrorMessage("Failed to delete user: $error", context);
+    }
   }
 
   Future<void> addCart() async {
@@ -65,26 +69,26 @@ class _CartItemWidgetState extends State<CartItemWidget> {
       return;
     }
 
-    return FirebaseFirestore.instance
-        .collection('cartitems')
-        .doc(widget.docid)
-        .set({
-          'image': widget.image,
-          'productname': widget.productname,
-          'productprice': widget.productprice,
-          'uid': box.read('uid'),
-        })
-        .then((value) =>
-            Utils.toastmessage("${widget.productname} added to favourites "))
-        .catchError(
-          (error) =>
-              Utils.flushBarErrorMessage("Failed to add user: $error", context),
-        );
+    try {
+      await FirebaseFirestore.instance
+          .collection(FirestoreCollections.cartItems)
+          .doc(widget.docid)
+          .set({
+        'image': widget.image,
+        'productname': widget.productname,
+        'productprice': widget.productprice,
+        'uid': box.read('uid'),
+      });
+      Utils.toastmessage("${widget.productname} added to cart");
+    } catch (error) {
+      if (!mounted) return;
+      Utils.flushBarErrorMessage("Failed to add user: $error", context);
+    }
   }
 
-  void toggleCart() async {
+  Future<void> toggleCart() async {
     final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
+    if (currentUser == null || !mounted) {
       return;
     }
 

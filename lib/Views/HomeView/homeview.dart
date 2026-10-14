@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:designerdigger/Services/firestore_collections.dart';
 import 'package:designerdigger/Utilities/Provider/categoryprovider.dart';
 import 'package:designerdigger/Utilities/Provider/favouriteprovider.dart';
 import 'package:designerdigger/Utilities/colors.dart';
@@ -6,6 +7,8 @@ import 'package:designerdigger/Widgets/HomeWidgets/addcartwidget.dart';
 import 'package:designerdigger/Widgets/HomeWidgets/categorywidget.dart';
 import 'package:designerdigger/Widgets/HomeWidgets/favouritewidget.dart';
 import 'package:designerdigger/Widgets/HomeWidgets/promotionwidget.dart';
+import 'package:designerdigger/Widgets/HomeWidgets/delete_product_button.dart';
+import 'package:designerdigger/Widgets/HomeWidgets/replace_product_image_button.dart';
 import 'package:designerdigger/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -21,7 +24,7 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   final Stream<QuerySnapshot> _profileStream = FirebaseFirestore.instance
-      .collection('users')
+      .collection(FirestoreCollections.diggerUsers)
       .where('uid', isEqualTo: box.read('uid'))
       .snapshots();
 
@@ -31,7 +34,7 @@ class _HomeViewState extends State<HomeView> {
 
   getClientStream() async {
     var dat = await FirebaseFirestore.instance
-        .collection('products')
+        .collection(FirestoreCollections.products)
         .orderBy('productname')
         .get();
 
@@ -63,7 +66,7 @@ class _HomeViewState extends State<HomeView> {
         }
       }
     } else {
-      // showResults = List.from(allresults);
+      showResults = List.from(allresults);
     }
     setState(() {
       resultList = showResults;
@@ -248,23 +251,47 @@ class _HomeViewState extends State<HomeView> {
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            InkWell(
-                                              onTap: () {
-                                                var documentId = resultData.id;
-                                                context.push('/detailview',
-                                                    extra: documentId);
-                                              },
-                                              child: Container(
-                                                height: sc.height / 6.5,
-                                                width: sc.width,
-                                                decoration: BoxDecoration(
-                                                  image: DecorationImage(
-                                                    image: NetworkImage(
-                                                      resultData['image'],
+                                            Stack(
+                                              children: [
+                                                InkWell(
+                                                  onTap: () {
+                                                    var documentId =
+                                                        resultData.id;
+                                                    context.push('/detailview',
+                                                        extra: documentId);
+                                                  },
+                                                  child: Container(
+                                                    height: sc.height / 6.5,
+                                                    width: sc.width,
+                                                    decoration: BoxDecoration(
+                                                      image: DecorationImage(
+                                                        image: NetworkImage(
+                                                          resultData['image'],
+                                                        ),
+                                                        fit: BoxFit.cover,
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
-                                              ),
+                                                Positioned(
+                                                  bottom: 4,
+                                                  left: 4,
+                                                  child:
+                                                      ReplaceProductImageButton(
+                                                    productId: resultData.id,
+                                                  ),
+                                                ),
+                                                Positioned(
+                                                  bottom: 4,
+                                                  right: 4,
+                                                  child: DeleteProductButton(
+                                                    productId: resultData.id,
+                                                    productName: resultData[
+                                                            'productname']
+                                                        ?.toString(),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                             SizedBox(
                                               height: sc.height * 0.025,
@@ -325,23 +352,44 @@ class _HomeViewState extends State<HomeView> {
                           return StreamBuilder<QuerySnapshot>(
                             stream: value.activecat == 'All'
                                 ? FirebaseFirestore.instance
-                                    .collection('products')
+                                    .collection(FirestoreCollections.products)
                                     .snapshots()
                                 : FirebaseFirestore.instance
-                                    .collection('products')
+                                    .collection(FirestoreCollections.products)
                                     .where('category',
                                         isEqualTo: value.activecat)
                                     .snapshots(),
                             builder: (BuildContext context,
                                 AsyncSnapshot<QuerySnapshot> snapshot) {
                               if (snapshot.hasError) {
-                                return const Text('');
+                                return Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Text(
+                                    'Unable to load products.\n${snapshot.error}',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                );
                               }
 
                               if (snapshot.connectionState ==
                                   ConnectionState.waiting) {
-                                return const Text("");
+                                return const Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: CircularProgressIndicator(),
+                                );
                               }
+
+                              if (snapshot.data == null ||
+                                  snapshot.data!.docs.isEmpty) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: Text(
+                                    'No products found',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                );
+                              }
+
                               return AlignedGridView.count(
                                 shrinkWrap: true,
                                 physics: const ScrollPhysics(),
@@ -376,35 +424,64 @@ class _HomeViewState extends State<HomeView> {
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment.start,
                                                   children: [
-                                                    InkWell(
-                                                      onTap: () {
-                                                        var documentId =
-                                                            resultData.id;
-                                                        context.push(
-                                                            '/detailview',
-                                                            extra: documentId);
-                                                      },
-                                                      child: Padding(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .only(
-                                                                right: 12.0),
-                                                        child: Container(
-                                                          height:
-                                                              sc.height / 6.5,
-                                                          width: sc.width,
-                                                          decoration:
-                                                              BoxDecoration(
-                                                            image:
-                                                                DecorationImage(
-                                                              image:
-                                                                  NetworkImage(
-                                                                resultData[
-                                                                    'image'],
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              right: 12.0),
+                                                      child: Stack(
+                                                        children: [
+                                                          InkWell(
+                                                            onTap: () {
+                                                              var documentId =
+                                                                  resultData.id;
+                                                              context.push(
+                                                                  '/detailview',
+                                                                  extra:
+                                                                      documentId);
+                                                            },
+                                                            child: Container(
+                                                              height: sc
+                                                                      .height /
+                                                                  6.5,
+                                                              width: sc.width,
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                image:
+                                                                    DecorationImage(
+                                                                  image:
+                                                                      NetworkImage(
+                                                                    resultData[
+                                                                        'image'],
+                                                                  ),
+                                                                  fit: BoxFit
+                                                                      .cover,
+                                                                ),
                                                               ),
                                                             ),
                                                           ),
-                                                        ),
+                                                          Positioned(
+                                                            bottom: 4,
+                                                            left: 4,
+                                                            child:
+                                                                ReplaceProductImageButton(
+                                                              productId:
+                                                                  resultData.id,
+                                                            ),
+                                                          ),
+                                                          Positioned(
+                                                            bottom: 4,
+                                                            right: 4,
+                                                            child:
+                                                                DeleteProductButton(
+                                                              productId:
+                                                                  resultData.id,
+                                                              productName:
+                                                                  resultData[
+                                                                          'productname']
+                                                                      ?.toString(),
+                                                            ),
+                                                          ),
+                                                        ],
                                                       ),
                                                     ),
                                                     SizedBox(

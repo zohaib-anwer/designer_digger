@@ -2,7 +2,7 @@ import 'package:designerdigger/Utilities/colors.dart';
 import 'package:designerdigger/Views/CartView/cartview.dart';
 import 'package:designerdigger/Views/HomeView/homeview.dart';
 import 'package:designerdigger/Views/FavouriteView/favouriteview.dart';
-import 'package:designerdigger/Views/profileview/profileview.dart';
+import 'package:designerdigger/Views/Profileview/profileview.dart';
 import 'package:flutter/material.dart';
 
 class MainView extends StatefulWidget {
@@ -14,12 +14,6 @@ class MainView extends StatefulWidget {
 
 class _MainViewState extends State<MainView> {
   int _selectedIndex = 0;
-  static const List<Widget> _widgetOptions = <Widget>[
-    HomeView(),
-    CartView(),
-    FavouriteView(),
-    ProfileView(),
-  ];
 
   void _onItemTapped(int index) {
     setState(() {
@@ -31,8 +25,14 @@ class _MainViewState extends State<MainView> {
   Widget build(BuildContext context) {
     Size sc = MediaQuery.of(context).size;
     return Scaffold(
-      body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: const [
+          HomeView(),
+          CartView(),
+          FavouriteView(),
+          ProfileView(),
+        ],
       ),
       bottomNavigationBar: SizedBox(
         height: sc.height * 0.1048,

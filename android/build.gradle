@@ -15,6 +15,13 @@ subprojects { subproject ->
     afterEvaluate {
         if (subproject.hasProperty("android")) {
             subproject.android {
+                if (compileSdkVersion instanceof Integer) {
+                    if (compileSdkVersion < 36) {
+                        compileSdkVersion 36
+                    }
+                } else if (compileSdkVersion.toString().replace("android-", "").toInteger() < 36) {
+                    compileSdkVersion 36
+                }
                 buildFeatures {
                     buildConfig = true
                 }

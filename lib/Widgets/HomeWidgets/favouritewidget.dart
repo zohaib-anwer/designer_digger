@@ -1,3 +1,4 @@
+import 'package:designerdigger/Services/firestore_collections.dart';
 import 'package:designerdigger/Utilities/colors.dart';
 import 'package:designerdigger/Utilities/utils.dart';
 import 'package:designerdigger/main.dart';
@@ -27,17 +28,18 @@ class _FavouriteWidgetState extends State<FavouriteWidget> {
     super.initState();
   }
 
-  void checkLikeStatus() async {
+  Future<void> checkLikeStatus() async {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
       return;
     }
 
     final snapshot = await FirebaseFirestore.instance
-        .collection('favourites')
+        .collection(FirestoreCollections.favourites)
         .doc(widget.docid)
         .get();
 
+    if (!mounted) return;
     setState(() {
       isLiked = snapshot.exists;
     });
@@ -50,7 +52,7 @@ class _FavouriteWidgetState extends State<FavouriteWidget> {
     }
 
     return FirebaseFirestore.instance
-        .collection('favourites')
+        .collection(FirestoreCollections.favourites)
         .doc(widget.docid)
         .delete()
         .catchError((error) => Utils.flushBarErrorMessage(
@@ -64,7 +66,7 @@ class _FavouriteWidgetState extends State<FavouriteWidget> {
     }
 
     return FirebaseFirestore.instance
-        .collection('favourites')
+        .collection(FirestoreCollections.favourites)
         .doc(widget.docid)
         .set({
           'image': widget.image,

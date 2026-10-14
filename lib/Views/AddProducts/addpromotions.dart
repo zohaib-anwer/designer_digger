@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:designerdigger/Services/admin_service.dart';
+import 'package:designerdigger/Services/firestore_collections.dart';
+import 'package:designerdigger/Services/supabase_storage_service.dart';
 import 'package:designerdigger/Utilities/colors.dart';
 import 'package:designerdigger/Utilities/utils.dart';
 import 'package:designerdigger/main.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,53 +22,50 @@ class _AddPromotionsState extends State<AddPromotions> {
   bool isLoading = false;
   XFile? singleImage;
   chooseImage() async {
-    return await ImagePicker().pickImage(source: ImageSource.gallery);
+    return await SupabaseStorageService.pickImage();
   }
 
-  String getImageName(XFile image) {
-    return image.path.split("/").last;
-  }
-
-  Future<String> uploadImage(XFile image) async {
+  Future<void> uploadImage(XFile image) async {
+    if (!await AdminService.isAdmin()) {
+      if (mounted) {
+        Utils.flushBarErrorMessage('Admin only', context);
+      }
+      return;
+    }
     setState(() {
       isLoading = true;
     });
-    Reference db = FirebaseStorage.instance.ref("image/${getImageName(image)}");
-
-    await db.putFile(File(image.path));
-    return await db.getDownloadURL().then((value) async {
-      users
-          .add({
-            'image': value,
-            'heading': headingController.text,
-            'title': titleController.text,
-            'subtitle': subtitleController.text,
-            'uid': box.read('uid')
-          })
-          .then((value) => print('Product Edited'))
-          .whenComplete(() {
-            Utils.toastmessage("Banner Added");
-            context.pop();
-
-            setState(() {
-              isLoading = false;
-            });
-          })
-          .catchError((error) {
-            Utils.flushBarErrorMessage(
-                "failedtoaddpromotionbanner: $error", context);
-            setState(() {
-              isLoading = false;
-            });
-          });
-
-      return '';
-    });
+    try {
+      final value = await SupabaseStorageService.uploadImage(
+        image,
+        folder: 'promotions',
+      );
+      await users.add({
+        'image': value,
+        'heading': headingController.text,
+        'title': titleController.text,
+        'subtitle': subtitleController.text,
+        'uid': box.read('uid')
+      });
+      Utils.toastmessage("Banner Added");
+      if (mounted) context.pop();
+    } catch (error) {
+      if (mounted) {
+        Utils.flushBarErrorMessage(
+            "failedtoaddpromotionbanner: $error", context);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
   }
 
   final _formkey = GlobalKey<FormState>();
   CollectionReference users =
-      FirebaseFirestore.instance.collection('promotions');
+      FirebaseFirestore.instance.collection(FirestoreCollections.promotions);
 
   var titleController = TextEditingController();
   var subtitleController = TextEditingController();
@@ -75,7 +74,21 @@ class _AddPromotionsState extends State<AddPromotions> {
   @override
   Widget build(BuildContext context) {
     Size sc = MediaQuery.of(context).size;
-    return Scaffold(
+    return StreamBuilder<bool>(
+      stream: AdminService.isAdminStream(),
+      builder: (context, adminSnapshot) {
+        if (adminSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (adminSnapshot.data != true) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Add Banner')),
+            body: const Center(child: Text('Admin access required')),
+          );
+        }
+        return Scaffold(
       backgroundColor: Theme.of(context).brightness == Brightness.dark
           ? darkbackgroundclr
           : whiteclr,
@@ -272,6 +285,8 @@ class _AddPromotionsState extends State<AddPromotions> {
           ),
         ),
       ),
+    );
+      },
     );
   }
 }

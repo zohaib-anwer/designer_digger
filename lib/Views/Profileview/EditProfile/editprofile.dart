@@ -1,10 +1,11 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:designerdigger/Services/firestore_collections.dart';
+import 'package:designerdigger/Services/supabase_storage_service.dart';
 import 'package:designerdigger/Utilities/colors.dart';
 import 'package:designerdigger/Utilities/utils.dart';
 import 'package:designerdigger/main.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,40 +21,33 @@ class EditProfile extends StatefulWidget {
 class _EditProfileState extends State<EditProfile> {
   XFile? singleImage;
   chooseImage() async {
-    return await ImagePicker().pickImage(source: ImageSource.gallery);
-  }
-
-  String getImageName(XFile image) {
-    return image.path.split("/").last;
+    return await SupabaseStorageService.pickImage();
   }
 
   Future<String> uploadImage(XFile image) async {
-    Reference db = FirebaseStorage.instance.ref("image/${getImageName(image)}");
-
-    await db.putFile(File(image.path));
-    return await db.getDownloadURL().then((value) async {
-      final Map<String, dynamic> imageData = {'avatar': value};
-      final FirebaseFirestore firestore = FirebaseFirestore.instance;
-      firestore.collection('users').doc(box.read('uid')).set(
-            imageData,
-            SetOptions(merge: true),
-          );
-
-      return '';
-    });
+    final value = await SupabaseStorageService.uploadImage(
+      image,
+      folder: 'avatars',
+    );
+    final Map<String, dynamic> imageData = {'avatar': value};
+    final FirebaseFirestore firestore = FirebaseFirestore.instance;
+    await firestore
+        .collection(FirestoreCollections.diggerUsers)
+        .doc(box.read('uid'))
+        .set(
+          imageData,
+          SetOptions(merge: true),
+        );
+    return value;
   }
 
   Future<void> _uploadAndSaveImage() async {
     final XFile? image = await chooseImage();
     if (image != null) {
+      setState(() => singleImage = image);
       final imageUrl = await uploadImage(image);
-      if (imageUrl.isNotEmpty) {
-        final Map<String, dynamic> imageData = {'avatar': imageUrl};
-        final FirebaseFirestore firestore = FirebaseFirestore.instance;
-        await firestore.collection('users').doc(box.read('uid')).set(
-              imageData,
-              SetOptions(merge: true),
-            );
+      if (imageUrl.isNotEmpty && mounted) {
+        Utils.toastmessage('Avatar updated');
       }
     }
   }
@@ -76,12 +70,13 @@ class _EditProfileState extends State<EditProfile> {
   late TextEditingController namecontroller;
   final _formkey = GlobalKey<FormState>();
   final Stream<QuerySnapshot> _usersStream = FirebaseFirestore.instance
-      .collection('users')
+      .collection(FirestoreCollections.diggerUsers)
       .where('uid', isEqualTo: box.read('uid'))
       .snapshots();
   addData() {
-    final DocumentReference documentRef =
-        FirebaseFirestore.instance.collection("users").doc(box.read('uid'));
+    final DocumentReference documentRef = FirebaseFirestore.instance
+        .collection(FirestoreCollections.diggerUsers)
+        .doc(box.read('uid'));
     final Map<String, dynamic> newData = {
       'address': addresscontroller.text,
       'name': namecontroller.text,

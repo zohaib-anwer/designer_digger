@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:designerdigger/Services/user_profile_service.dart';
 import 'package:designerdigger/Utilities/Provider/securepass.dart';
 import 'package:designerdigger/Utilities/colors.dart';
 import 'package:designerdigger/Utilities/utils.dart';
-import 'package:designerdigger/Views/Authentication/SignUpView/PhoneNumber/verifynumber.dart';
 import 'package:designerdigger/main.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -17,14 +17,22 @@ class SignUpView extends StatefulWidget {
 }
 
 class _SignUpViewState extends State<SignUpView> {
-  CollectionReference users = FirebaseFirestore.instance.collection('users');
   bool isLoading = false;
 
+  final _formkey = GlobalKey<FormState>();
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final phoneController = TextEditingController();
+
   Future<void> SignUp() async {
+    if (isLoading) return;
+
     setState(() {
       isLoading = true;
     });
 
+    String? createdUid;
     try {
       final credential =
           await FirebaseAuth.instance.createUserWithEmailAndPassword(
@@ -32,38 +40,103 @@ class _SignUpViewState extends State<SignUpView> {
         password: passwordController.text.trim(),
       );
 
-      await users.doc(credential.user!.uid).set({
-        'name': nameController.text,
-        'email': emailController.text,
-        'password': passwordController.text,
-        'uid': credential.user!.uid,
-      });
+      createdUid = credential.user!.uid;
+      debugPrint('Auth user created uid=$createdUid');
 
-      box.write('uid', credential.user!.uid);
-      box.write('name', nameController.text);
+      final phone = '+92${phoneController.text.trim()}';
 
-      GoRouter.of(context).go('/phonenumberview');
+      await UserProfileService.saveProfile(
+        uid: createdUid,
+        data: {
+          'name': nameController.text.trim(),
+          'email': emailController.text.trim(),
+          'password': passwordController.text.trim(),
+          'phonenumber': phone,
+          'uid': createdUid,
+          'isAdmin': false,
+          'avatar':
+              'https://www.lightsong.net/wp-content/uploads/2020/12/blank-profile-circle.png',
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+      );
+
+      box.write('uid', createdUid);
+      box.write('name', nameController.text.trim());
+      box.write('islogin', true);
+
+      if (!mounted) return;
+      Utils.toastmessage('Saved to digger_users');
+      GoRouter.of(context).go('/profilepic');
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'weak-password') {
+      if (!mounted) return;
+      debugPrint('Auth signup failed: ${e.code} ${e.message}');
+      String message;
+      switch (e.code) {
+        case 'weak-password':
+          message = 'The password provided is too weak.';
+          break;
+        case 'email-already-in-use':
+          message = 'The account already exists for that email.';
+          break;
+        case 'operation-not-allowed':
+          message =
+              'Email/Password sign-in is disabled. Enable it in Firebase Console → Authentication → Sign-in method.';
+          break;
+        case 'invalid-email':
+          message = 'Enter a valid email address.';
+          break;
+        case 'network-request-failed':
+          message = 'Network error. Check internet and try again.';
+          break;
+        default:
+          message = e.message ?? 'Auth signup failed (${e.code})';
+      }
+      Utils.flushBarErrorMessage(message, context);
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+      debugPrint('Firestore profile save failed: ${e.code} ${e.message}');
+      // Auth user may already exist even if Firestore write failed.
+      if (createdUid != null) {
+        box.write('uid', createdUid);
+        box.write('name', nameController.text.trim());
+        box.write('islogin', true);
+      }
+      if (e.code == 'permission-denied') {
         Utils.flushBarErrorMessage(
-            'The password provided is too weak.', context);
-      } else if (e.code == 'email-already-in-use') {
+          'Auth user created, but Firestore RULES blocked digger_users. Update Rules in Firebase Console.',
+          context,
+        );
+      } else {
         Utils.flushBarErrorMessage(
-            'The account already exists for that email.', context);
+          'Auth user created, but digger_users save failed: ${e.code}',
+          context,
+        );
+      }
+      if (createdUid != null) {
+        GoRouter.of(context).go('/profilepic');
       }
     } catch (e) {
+      if (!mounted) return;
+      debugPrint('Signup unexpected error: $e');
       Utils.flushBarErrorMessage(e.toString(), context);
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
-  final _formkey = GlobalKey<FormState>();
-  var nameController = TextEditingController();
-  var emailController = TextEditingController();
-  var passwordController = TextEditingController();
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    phoneController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     Size sc = MediaQuery.of(context).size;
@@ -76,11 +149,11 @@ class _SignUpViewState extends State<SignUpView> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SizedBox(
-                height: sc.height / 5,
+                height: sc.height / 8,
               ),
               Center(
                 child: Container(
-                  height: sc.height / 1.7,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   width: sc.width / 1.3,
                   decoration: BoxDecoration(
                     color: const Color.fromARGB(255, 234, 228, 228),
@@ -112,9 +185,8 @@ class _SignUpViewState extends State<SignUpView> {
                         child: TextFormField(
                           controller: nameController,
                           validator: (value) {
-                            if (value!.isEmpty) {
-                              return Utils.flushBarErrorMessage(
-                                  "Please Enter Name", context);
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter name';
                             }
                             return null;
                           },
@@ -141,9 +213,8 @@ class _SignUpViewState extends State<SignUpView> {
                             vertical: 12.0, horizontal: 15),
                         child: TextFormField(
                           validator: (value) {
-                            if (value!.isEmpty) {
-                              return Utils.flushBarErrorMessage(
-                                  "Please Enter Email", context);
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter email';
                             }
                             if (!value.contains('@') || !value.contains('.')) {
                               return 'Invalid email format';
@@ -170,6 +241,69 @@ class _SignUpViewState extends State<SignUpView> {
                           ),
                         ),
                       ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 12.0, horizontal: 15),
+                        child: Row(
+                          children: [
+                            Container(
+                              height: sc.height * 0.055,
+                              width: sc.width * 0.12,
+                              decoration: BoxDecoration(
+                                color: whiteclr,
+                                border: Border.all(color: greyclr),
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(12),
+                                  bottomLeft: Radius.circular(12),
+                                ),
+                              ),
+                              child: const Center(
+                                child: Text("+92 "),
+                              ),
+                            ),
+                            Expanded(
+                              child: TextFormField(
+                                controller: phoneController,
+                                keyboardType: TextInputType.phone,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Please enter phone number';
+                                  }
+                                  if (value.trim().length < 10) {
+                                    return 'Enter a valid phone number';
+                                  }
+                                  if (!value.trim().startsWith('3')) {
+                                    return 'Enter a valid phone number';
+                                  }
+                                  return null;
+                                },
+                                decoration: const InputDecoration(
+                                  hintText: "Enter Phone Number",
+                                  hintStyle:
+                                      TextStyle(fontWeight: FontWeight.w400),
+                                  contentPadding: EdgeInsets.all(6),
+                                  fillColor: whiteclr,
+                                  filled: true,
+                                  enabledBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: greyclr),
+                                    borderRadius: BorderRadius.only(
+                                      topRight: Radius.circular(12),
+                                      bottomRight: Radius.circular(12),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: greyclr),
+                                    borderRadius: BorderRadius.only(
+                                      topRight: Radius.circular(12),
+                                      bottomRight: Radius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       Consumer<SecurePass>(
                         builder: (context, value, child) {
                           return Padding(
@@ -178,12 +312,10 @@ class _SignUpViewState extends State<SignUpView> {
                             child: TextFormField(
                               obscureText: !value.securepass,
                               validator: (value) {
-                                if (value!.isEmpty) {
-                                  return Utils.flushBarErrorMessage(
-                                      "Please Enter Password", context);
-                                } else if (value!.length < 6) {
-                                  return Utils.flushBarErrorMessage(
-                                      "Please Enter 6 digit password", context);
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter password';
+                                } else if (value.length < 6) {
+                                  return 'Please enter 6 digit password';
                                 }
                                 return null;
                               },
@@ -221,17 +353,15 @@ class _SignUpViewState extends State<SignUpView> {
                           );
                         },
                       ),
-                      const Spacer(),
+                      SizedBox(height: sc.height * 0.02),
                       InkWell(
-                        onTap: () async {
-                          if (_formkey.currentState!.validate()) {
-                            setState(() {
-                              isLoading = false;
-                            });
-                            await SignUp();
-                          }
-                          ;
-                        },
+                        onTap: isLoading
+                            ? null
+                            : () async {
+                                if (_formkey.currentState!.validate()) {
+                                  await SignUp();
+                                }
+                              },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 15.0),
                           child: Container(
@@ -258,7 +388,7 @@ class _SignUpViewState extends State<SignUpView> {
                           ),
                         ),
                       ),
-                      const Spacer(),
+                      SizedBox(height: sc.height * 0.02),
                       InkWell(
                         onTap: () {
                           context.push('/signin');
@@ -281,7 +411,7 @@ class _SignUpViewState extends State<SignUpView> {
                           ),
                         ),
                       ),
-                      const Spacer(),
+                      SizedBox(height: sc.height * 0.02),
                     ],
                   ),
                 ),

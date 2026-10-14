@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:designerdigger/Services/user_profile_service.dart';
 import 'package:designerdigger/Utilities/Provider/securepass.dart';
 import 'package:designerdigger/Utilities/colors.dart';
 import 'package:designerdigger/Utilities/utils.dart';
@@ -16,36 +18,91 @@ class SignInView extends StatefulWidget {
 
 class _SignInViewState extends State<SignInView> {
   bool isLoading = false;
-  signin() async {
+  final _formKey = GlobalKey<FormState>();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+
+  Future<void> signin() async {
+    if (isLoading) return;
+
     setState(() {
       isLoading = true;
     });
+
     try {
-      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: emailController.text, password: passwordController.text);
-      box.write('uid', credential.user!.uid);
+      final credential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text,
+      );
+
+      final uid = credential.user!.uid;
+      final existing = await UserProfileService.doc(uid).get();
+      if (!existing.exists) {
+        await UserProfileService.saveProfile(
+          uid: uid,
+          data: {
+            'email': emailController.text.trim(),
+            'uid': uid,
+            'name': credential.user!.displayName ?? '',
+            'isAdmin': false,
+            'avatar':
+                'https://www.lightsong.net/wp-content/uploads/2020/12/blank-profile-circle.png',
+            'createdAt': FieldValue.serverTimestamp(),
+          },
+        );
+      }
+
+      box.write('uid', uid);
       box.write('islogin', true);
+
+      if (!mounted) return;
+      Utils.toastmessage('Login Succesfully');
       GoRouter.of(context).go('/mainview');
-      Utils.toastmessage("Login Succesfully");
-      setState(() {
-        isLoading = false;
-      });
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
-        Utils.flushBarErrorMessage('No user found for that email.', context);
-      } else if (e.code == 'wrong-password') {
-        Utils.flushBarErrorMessage(
-            'Wrong password provided for that user.', context);
+      if (!mounted) return;
+
+      String message = 'Login failed. Please try again.';
+      switch (e.code) {
+        case 'invalid-email':
+          message = 'Enter a valid email address.';
+          break;
+        case 'user-not-found':
+          message = 'No user found for that email.';
+          break;
+        case 'wrong-password':
+          message = 'Wrong password provided for that user.';
+          break;
+        case 'invalid-credential':
+          message = 'Invalid email or password.';
+          break;
+        case 'user-disabled':
+          message = 'This account has been disabled.';
+          break;
+        case 'too-many-requests':
+          message = 'Too many attempts. Try again later.';
+          break;
+      }
+      Utils.flushBarErrorMessage(message, context);
+    } catch (_) {
+      if (!mounted) return;
+      Utils.flushBarErrorMessage('Login failed. Please try again.', context);
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
       }
     }
-    setState(() {
-      isLoading = false;
-    });
   }
 
-  final _formKey = GlobalKey<FormState>();
-  var emailController = TextEditingController();
-  var passwordController = TextEditingController();
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     Size sc = MediaQuery.of(context).size;
@@ -91,9 +148,11 @@ class _SignInViewState extends State<SignInView> {
                         controller: emailController,
                         keyboardType: TextInputType.emailAddress,
                         validator: (value) {
-                          if (value!.isEmpty) {
-                            return Utils.flushBarErrorMessage(
-                                "Please Enter Email", context);
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter email';
+                          }
+                          if (!value.contains('@')) {
+                            return 'Enter a valid email';
                           }
                           return null;
                         },
@@ -122,9 +181,8 @@ class _SignInViewState extends State<SignInView> {
                               vertical: 12.0, horizontal: 15),
                           child: TextFormField(
                             validator: (value) {
-                              if (value!.isEmpty) {
-                                return Utils.flushBarErrorMessage(
-                                    "Please Enter password", context);
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter password';
                               }
                               return null;
                             },
@@ -165,16 +223,13 @@ class _SignInViewState extends State<SignInView> {
                     ),
                     const Spacer(),
                     InkWell(
-                      onTap: () {
-                        if (_formKey.currentState!.validate()) {
-                          setState(() {
-                            isLoading = false;
-                          });
-                          signin();
-                          GoRouter.of(context).go('/mainview');
-                          Utils.toastmessage("Login Succesfully");
-                        }
-                      },
+                      onTap: isLoading
+                          ? null
+                          : () {
+                              if (_formKey.currentState!.validate()) {
+                                signin();
+                              }
+                            },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 15.0),
                         child: Container(
